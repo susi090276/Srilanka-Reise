@@ -1,0 +1,1665 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>🌴 Sri Lanka Rundreise 2026 - Claus & Susanne</title>
+    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+    <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: #333;
+            min-height: 100vh;
+        }
+
+        /* ── HEADER ── */
+        .header {
+            background: linear-gradient(135deg, #1B5E20 0%, #4CAF50 100%);
+            color: white;
+            padding: 2rem;
+            text-align: center;
+            box-shadow: 0 4px 6px rgba(0,0,0,0.1);
+        }
+        .header h1 { font-size: clamp(1.4rem, 5vw, 2.5rem); margin-bottom: 0.5rem; text-shadow: 2px 2px 4px rgba(0,0,0,0.3); }
+        .header p  { font-size: clamp(0.85rem, 2.5vw, 1.2rem); opacity: 0.95; }
+
+        /* ── LAYOUT ── */
+        .container { max-width: 1400px; margin: 0 auto; padding: clamp(1rem, 3vw, 2rem); }
+
+        #map {
+            width: 100%;
+            height: clamp(260px, 45vw, 600px);
+            border-radius: 12px;
+            box-shadow: 0 8px 16px rgba(0,0,0,0.2);
+            margin-bottom: 2rem;
+        }
+
+        .destination-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(min(100%, 350px), 1fr));
+            gap: 2rem;
+            margin-top: 2rem;
+        }
+
+        /* ── CARDS ── */
+        .destination-card {
+            background: white;
+            border-radius: 12px;
+            overflow: hidden;
+            box-shadow: 0 4px 8px rgba(0,0,0,0.1);
+            transition: transform 0.3s ease, box-shadow 0.3s ease;
+        }
+        .destination-card:hover { transform: translateY(-5px); box-shadow: 0 8px 16px rgba(0,0,0,0.2); }
+
+        .destination-header {
+            background: linear-gradient(135deg, #4CAF50 0%, #66BB6A 100%);
+            color: white;
+            padding: 1.5rem;
+        }
+        .destination-header h2 { font-size: clamp(1.2rem, 3.5vw, 1.8rem); margin-bottom: 0.5rem; }
+        .destination-header p  { opacity: 0.95; font-size: clamp(0.85rem, 2vw, 1.1rem); }
+
+        .destination-content { padding: 1.5rem; }
+        .destination-content > p { font-size: 1.05rem; line-height: 1.6; margin-bottom: 1.5rem; color: #555; }
+
+        /* ── BUTTONS ── */
+        .info-buttons { display: grid; grid-template-columns: repeat(2, 1fr); gap: 1rem; margin-top: 1rem; }
+        .info-button {
+            background: linear-gradient(135deg, #4CAF50 0%, #66BB6A 100%);
+            color: white; border: none;
+            padding: 1rem 0.5rem; border-radius: 8px; cursor: pointer;
+            font-size: clamp(0.78rem, 2vw, 1rem); font-weight: 600;
+            transition: all 0.3s ease;
+            display: flex; align-items: center; justify-content: center; gap: 0.5rem;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+            -webkit-tap-highlight-color: transparent; touch-action: manipulation;
+        }
+        .info-button:hover  { transform: translateY(-2px); box-shadow: 0 4px 8px rgba(0,0,0,0.2); background: linear-gradient(135deg, #45a049 0%, #5cb85f 100%); }
+        .info-button:active { transform: translateY(0); }
+
+        /* ── MODAL OVERLAY ── */
+        .modal {
+            display: none; position: fixed; z-index: 10000;
+            left: 0; top: 0; width: 100%; height: 100%;
+            background-color: rgba(0,0,0,0.8);
+            overflow-y: auto; -webkit-overflow-scrolling: touch;
+            animation: fadeIn 0.3s;
+        }
+        @keyframes fadeIn { from { opacity: 0; } to { opacity: 1; } }
+
+        /* Standard modal (Unterkunft, Highlights, Wellness) */
+        .modal-content {
+            background-color: white;
+            margin: 3% auto;
+            padding: clamp(1rem, 3vw, 2rem);
+            border-radius: 12px;
+            width: min(94%, 960px);
+            box-shadow: 0 8px 32px rgba(0,0,0,0.3);
+            animation: slideIn 0.3s;
+        }
+        @keyframes slideIn { from { transform: translateY(-50px); opacity: 0; } to { transform: translateY(0); opacity: 1; } }
+
+        /* ── GALERIE-POPUP: fester Rahmen, scrollbare Mitte, Upload-Zone immer sichtbar ── */
+        .modal-content.gallery-modal {
+            /* Höhe des Popups auf 88vh begrenzen, Inhalt flex */
+            display: flex;
+            flex-direction: column;
+            padding: 0;
+            overflow: hidden;                 /* kein Scrollen des äußeren Kastens */
+            max-height: 88vh;
+            margin: 3% auto;
+        }
+        /* Oberer fixierter Bereich: Titel + Schließen */
+        .gm-header {
+            flex-shrink: 0;
+            display: flex; justify-content: space-between; align-items: center; gap: 1rem;
+            padding: clamp(0.9rem,2vw,1.4rem) clamp(1rem,3vw,2rem);
+            border-bottom: 2px solid #4CAF50;
+        }
+        .gm-header h2 { color: #1B5E20; font-size: clamp(1rem,3vw,1.8rem); line-height:1.3; }
+        /* Mittlerer scrollbarer Bereich: Bilder-Raster */
+        .gm-scroll {
+            flex: 1;
+            overflow-y: scroll;               /* Scrollbar immer sichtbar rechts */
+            -webkit-overflow-scrolling: touch;
+            padding: 0.8rem clamp(1rem,3vw,2rem) 0;
+        }
+        /* Unterer fixierter Bereich: Upload-Zone */
+        .gm-footer {
+            flex-shrink: 0;
+            padding: clamp(0.8rem,2vw,1.2rem) clamp(1rem,3vw,2rem);
+            border-top: 1px solid #e8f5e9;
+            background: white;
+            border-radius: 0 0 12px 12px;
+        }
+
+        .modal-header {
+            display: flex; justify-content: space-between; align-items: center; gap: 1rem;
+            margin-bottom: 1.5rem; padding-bottom: 1rem; border-bottom: 2px solid #4CAF50;
+        }
+        .modal-header h2 { color: #1B5E20; font-size: clamp(1rem, 3vw, 1.8rem); line-height: 1.3; }
+
+        .close {
+            color: #999; font-size: 2rem; font-weight: bold; cursor: pointer;
+            transition: color 0.3s; line-height: 1; flex-shrink: 0;
+            -webkit-tap-highlight-color: transparent;
+        }
+        .close:hover { color: #333; }
+
+        .modal-body { line-height: 1.8; }
+        .modal-body h3 { color: #1B5E20; margin: 1.5rem 0 1rem; font-size: 1.3rem; }
+        .modal-body ul { list-style: none; padding-left: 0; }
+        .modal-body li { padding: 0.5rem 0 0.5rem 1.5rem; position: relative; }
+        .modal-body li:before { content: "🌴"; position: absolute; left: 0; }
+
+        .accommodation-details { background: #f8f9fa; padding: 1rem; border-radius: 8px; margin: 1rem 0; }
+        .accommodation-details strong { color: #1B5E20; font-size: 1.1rem; }
+        .accommodation-details p { margin: 0.5rem 0; }
+
+        .warning-box   { background: #FFF3E0; border-left: 4px solid #FF6B35; padding: 1rem; margin: 1rem 0; border-radius: 4px; }
+        .highlight-box { background: #E8F5E9;  border-left: 4px solid #4CAF50;  padding: 1rem; margin: 1rem 0; border-radius: 4px; }
+
+        /* ── IMAGE GRID  (Tabellenraster) ── */
+        .image-grid {
+            display: grid;
+            grid-template-columns: repeat(4, 1fr);
+            gap: 1rem;
+            margin: 0.8rem 0;
+        }
+
+        /* ── EINZELNE BILD-ZELLE ── */
+        .img-cell {
+            display: flex; flex-direction: column; align-items: center;
+            cursor: grab; user-select: none; position: relative;
+            border-radius: 10px; padding: 4px;
+            transition: background 0.15s;
+        }
+        .img-cell:active { cursor: grabbing; }
+        .img-cell.dragging   { opacity: 0.4; outline: 2px dashed #4CAF50; border-radius: 10px; }
+        .img-cell.drop-over  { background: #e8f5e9; outline: 2px solid #4CAF50; border-radius: 10px; }
+
+        .img-cell img {
+            width: 100%; height: 150px; object-fit: cover;
+            border-radius: 8px; pointer-events: none;
+            box-shadow: 0 2px 6px rgba(0,0,0,0.15);
+            transition: box-shadow 0.2s;
+        }
+        .img-cell:hover img { box-shadow: 0 4px 14px rgba(0,0,0,0.25); }
+
+        .img-caption {
+            margin-top: 0.3rem; font-size: 0.75rem; color: #555;
+            text-align: center; word-break: break-word; line-height: 1.3;
+            pointer-events: none;
+        }
+
+        /* ── GALERIE TOOLBAR ── */
+        .gallery-toolbar {
+            display: flex; justify-content: space-between; align-items: center;
+            flex-wrap: wrap; gap: 0.5rem; margin-bottom: 0.7rem;
+        }
+        .gallery-count { font-size: 0.85rem; color: #777; }
+        .btn-clear-all {
+            background: #fff; color: #c62828; border: 1.5px solid #c62828;
+            padding: 0.3rem 0.75rem; border-radius: 5px; cursor: pointer;
+            font-size: 0.82rem; font-weight: 600; -webkit-tap-highlight-color: transparent;
+        }
+        .btn-clear-all:hover { background: #c62828; color: white; }
+
+        .empty-gallery { text-align: center; padding: 2.5rem 1rem; color: #ccc; }
+        .empty-gallery .empty-icon { font-size: 3.5rem; }
+        .empty-gallery p { margin-top: 0.6rem; font-size: 0.9rem; }
+
+        /* GitHub-Bilder: dezenter blauer Untertitel */
+        .gh-cell .img-caption { color: #1565C0; }
+        .gh-cell::after {
+            content: '🌐';
+            position: absolute; top: 4px; right: 4px;
+            font-size: 0.7rem; opacity: 0.7;
+        }
+        .gh-cell { position: relative; }
+
+        /* Inline-Umbenennen-Feld */
+        .rename-input {
+            width: 100%; margin-top: 4px;
+            padding: 3px 6px;
+            border: 1.5px solid #4CAF50; border-radius: 5px;
+            font-size: 0.78rem; text-align: center;
+            outline: none; box-shadow: 0 0 0 2px rgba(76,175,80,0.25);
+        }
+
+        /* ── DRAG & DROP UPLOAD ZONE ── */
+        .drop-zone {
+            border: 2px dashed #4CAF50; border-radius: 10px;
+            padding: 1.8rem 1rem; text-align: center; cursor: pointer;
+            background: #f9fff9; transition: background 0.2s, border-color 0.2s;
+            position: relative; margin-top: 1.2rem;
+        }
+        .drop-zone.over { background: #e8f5e9; border-color: #2e7d32; border-style: solid; }
+        .drop-zone input[type="file"] {
+            position: absolute; inset: 0; opacity: 0; cursor: pointer; width: 100%; height: 100%;
+        }
+        .drop-zone-icon { font-size: 2.2rem; }
+        .drop-zone-text { font-size: 0.95rem; color: #444; margin-top: 0.5rem; }
+        .drop-zone-hint { font-size: 0.78rem; color: #999; margin-top: 0.3rem; }
+
+        /* ── KONTEXT-MENÜ ── */
+        #ctxMenu {
+            display: none; position: fixed; z-index: 99999;
+            background: white; border: 1px solid #ddd;
+            border-radius: 8px; box-shadow: 0 4px 18px rgba(0,0,0,0.18);
+            min-width: 175px; overflow: hidden;
+            animation: ctxPop 0.12s ease;
+        }
+        @keyframes ctxPop { from { opacity:0; transform:scale(0.93); } to { opacity:1; transform:scale(1); } }
+        #ctxMenu .ctx-item {
+            padding: 0.7rem 1.1rem; cursor: pointer; font-size: 0.9rem;
+            display: flex; align-items: center; gap: 0.55rem;
+            transition: background 0.12s;
+        }
+        #ctxMenu .ctx-item:hover { background: #f0f9f0; }
+        #ctxMenu .ctx-item.danger:hover { background: #fff5f5; color: #c62828; }
+        #ctxMenu hr { border: none; border-top: 1px solid #eee; margin: 0; }
+
+        /* ── LIGHTBOX ── */
+        .image-modal {
+            display: none; position: fixed; z-index: 20000;
+            inset: 0; background-color: rgba(0,0,0,0.95);
+        }
+        .image-modal-content {
+            display: block; max-width: 90vw; max-height: 90vh;
+            position: absolute; top: 50%; left: 50%;
+            transform: translate(-50%, -50%); border-radius: 8px;
+        }
+        #lightboxCaption {
+            position: absolute; bottom: 1.2rem; left: 50%; transform: translateX(-50%);
+            color: white; font-size: 0.88rem; background: rgba(0,0,0,0.55);
+            padding: 0.3rem 1rem; border-radius: 20px;
+            max-width: 90vw; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+        }
+        .leaflet-popup-content { font-size: 14px; line-height: 1.6; }
+        .leaflet-popup-content h3 { color: #1B5E20; margin-bottom: 0.5rem; }
+
+        @keyframes gpsPulse {
+            0%   { box-shadow: 0 0 0 0 rgba(255,0,0,0.7); }
+            70%  { box-shadow: 0 0 0 10px rgba(255,0,0,0); }
+            100% { box-shadow: 0 0 0 0 rgba(255,0,0,0); }
+        }
+
+        /* ── RESPONSIVE ── */
+        @media (max-width: 480px) {
+            .info-buttons { grid-template-columns: 1fr; }
+            .image-grid   { grid-template-columns: repeat(2, 1fr); }
+            .img-cell img { height: 110px; }
+            .modal-content { width: 100%; margin: 0; border-radius: 14px 14px 0 0; position: fixed; bottom: 0; max-height: 90vh; overflow-y: auto; }
+        }
+        @media (min-width: 481px) and (max-width: 768px) {
+            .image-grid { grid-template-columns: repeat(3, 1fr); }
+            .img-cell img { height: 130px; }
+            .modal-content { width: 96%; margin: 2% auto; }
+        }
+        /* ── POI-LINKS (anklickbare Standorte im Text) ── */
+        .poi-link {
+            color: #2e7d32; font-weight: 600;
+            border-bottom: 1.5px dashed #4CAF50;
+            cursor: pointer; white-space: nowrap;
+            transition: color 0.2s, background 0.2s;
+            border-radius: 3px; padding: 0 2px;
+        }
+        .poi-link:hover { color: #1B5E20; background: #e8f5e9; }
+
+        /* ── POI-Auswahl-Popup ── */
+        #poiPopup {
+            display: none; position: fixed; z-index: 50000;
+            background: white; border-radius: 12px;
+            box-shadow: 0 8px 32px rgba(0,0,0,0.22);
+            padding: 1rem 1.2rem; min-width: 220px;
+            border: 1.5px solid #c8e6c9;
+        }
+        #poiPopup .poi-popup-title {
+            font-size: 0.82rem; color: #888; margin-bottom: 0.6rem;
+            border-bottom: 1px solid #eee; padding-bottom: 0.4rem;
+        }
+        #poiPopup .poi-popup-name {
+            font-weight: 700; color: #1B5E20; font-size: 0.95rem;
+            margin-bottom: 0.8rem;
+        }
+        #poiPopup .poi-popup-btns { display: flex; flex-direction: column; gap: 0.4rem; }
+        #poiPopup .poi-popup-btn {
+            border: 1.5px solid #c8e6c9; border-radius: 8px;
+            padding: 0.5rem 0.8rem; font-size: 0.88rem;
+            cursor: pointer; background: white; text-align: left;
+            transition: all 0.15s; -webkit-tap-highlight-color: transparent;
+        }
+        #poiPopup .poi-popup-btn:hover { background: #e8f5e9; border-color: #4CAF50; }
+        #poiPopup .poi-popup-btn.start { border-color: #a5d6a7; }
+        #poiPopup .poi-popup-btn.ziel  { border-color: #ef9a9a; }
+        #poiPopup .poi-popup-close {
+            position: absolute; top: 0.5rem; right: 0.7rem;
+            font-size: 1.1rem; color: #aaa; cursor: pointer;
+            background: none; border: none; padding: 0;
+        }
+        /* ── GESCHWINDIGKEITS-POPUP ── */
+        #speedPopup {
+            display: none; position: fixed; z-index: 50001;
+            background: white; border-radius: 12px;
+            box-shadow: 0 8px 32px rgba(0,0,0,0.22);
+            padding: 1rem 1.2rem; min-width: 200px;
+            border: 1.5px solid #c8e6c9;
+        }
+        #speedPopup .sp-title { font-size: 0.82rem; color: #888; margin-bottom: 0.5rem; }
+        #speedPopup .sp-mode  { font-weight: 700; color: #1B5E20; font-size: 1rem; margin-bottom: 0.7rem; }
+        #speedPopup .sp-row   { display: flex; align-items: center; gap: 0.5rem; }
+        #speedPopup input {
+            width: 70px; border: 1.5px solid #c8e6c9; border-radius: 8px;
+            padding: 0.4rem 0.6rem; font-size: 1rem; font-weight: 600;
+            text-align: center; outline: none;
+        }
+        #speedPopup input:focus { border-color: #4CAF50; }
+        #speedPopup .sp-unit { color: #555; font-size: 0.9rem; }
+        #speedPopup .sp-btns { display: flex; gap: 0.4rem; margin-top: 0.7rem; }
+        #speedPopup .sp-ok {
+            flex: 1; background: #4CAF50; color: white; border: none;
+            border-radius: 8px; padding: 0.45rem; font-size: 0.9rem;
+            font-weight: 600; cursor: pointer;
+        }
+        #speedPopup .sp-cancel {
+            flex: 1; background: white; color: #888; border: 1.5px solid #ddd;
+            border-radius: 8px; padding: 0.45rem; font-size: 0.9rem; cursor: pointer;
+        }
+        .speed-badge { font-size: 0.7rem; opacity: 0.75; margin-left: 3px; }
+
+        .routing-box {
+            background: white; border-radius: 12px;
+            box-shadow: 0 4px 12px rgba(0,0,0,0.12);
+            padding: 1.2rem 1.4rem; margin-bottom: 2rem;
+        }
+        .routing-box h3 { color: #1B5E20; font-size: 1.1rem; margin-bottom: 1rem; }
+        .route-field { margin-bottom: 0.7rem; }
+        .route-field label { font-size: 0.8rem; font-weight: 600; color: #555; display: block; margin-bottom: 0.3rem; }
+        .route-input-row { display: flex; gap: 0.4rem; align-items: center; }
+        .route-input-row input {
+            flex: 1; border: 1.5px solid #c8e6c9; border-radius: 8px;
+            padding: 0.6rem 0.8rem; font-size: 0.92rem; outline: none;
+            transition: border-color 0.2s;
+        }
+        .route-input-row input:focus  { border-color: #4CAF50; }
+        .route-input-row input.picked { border-color: #4CAF50; background: #f1f8e9; }
+        .btn-myloc, .btn-pick-field {
+            border: 1.5px solid #c8e6c9; border-radius: 8px;
+            padding: 0.55rem 0.7rem; font-size: 1rem; cursor: pointer;
+            background: white; transition: all 0.2s; flex-shrink: 0;
+            -webkit-tap-highlight-color: transparent;
+        }
+        .btn-myloc:hover, .btn-pick-field:hover { border-color: #4CAF50; background: #f1f8e9; }
+        .btn-pick-field.picking { background: #fff9c4; border-color: #f9a825; }
+        .routing-modes { display: flex; gap: 0.5rem; margin: 0.8rem 0; flex-wrap: wrap; }
+        .mode-btn {
+            border: 1.5px solid #c8e6c9; border-radius: 20px;
+            padding: 0.35rem 0.9rem; font-size: 0.85rem; cursor: pointer;
+            background: white; transition: all 0.2s; -webkit-tap-highlight-color: transparent;
+        }
+        .mode-btn.active { background: #4CAF50; color: white; border-color: #4CAF50; }
+        .mode-btn:hover  { border-color: #4CAF50; }
+        .routing-actions { display: flex; gap: 0.6rem; flex-wrap: wrap; align-items: center; }
+        .btn-route {
+            background: linear-gradient(135deg,#4CAF50,#66BB6A); color: white;
+            border: none; border-radius: 8px; padding: 0.6rem 1.2rem;
+            font-size: 0.92rem; font-weight: 600; cursor: pointer;
+            -webkit-tap-highlight-color: transparent;
+        }
+        .btn-route:hover { background: linear-gradient(135deg,#45a049,#5cb85f); }
+        .btn-route-clear {
+            background: white; color: #888; border: 1.5px solid #ddd;
+            border-radius: 8px; padding: 0.6rem 1rem;
+            font-size: 0.88rem; cursor: pointer;
+        }
+        .routing-result {
+            margin-top: 0.8rem; padding: 0.7rem 1rem;
+            background: #e8f5e9; border-radius: 8px; font-size: 0.9rem; color: #1B5E20;
+            display: none;
+        }
+        .routing-error {
+            margin-top: 0.8rem; padding: 0.7rem 1rem;
+            background: #fff3e0; border-radius: 8px; font-size: 0.88rem; color: #e65100;
+            display: none;
+        }
+        .pick-hint {
+            position: fixed; top: 0; left: 0; width: 100%;
+            background: #F57F17; color: white; text-align: center;
+            padding: 0.7rem; font-size: 0.9rem; z-index: 99999;
+            pointer-events: none;
+        }
+    </style>
+</head>
+<body>
+
+<div class="header">
+    <h1>🌴 Sri Lanka Rundreise 2026 🌴</h1>
+    <p>Eine Reise voller Abenteuer | 25. März – 14. April 2026</p>
+    <p style="font-size:1rem; margin-top:0.5rem;">Claus &amp; Susanne</p>
+</div>
+
+<div class="container">
+    <div id="map"></div>
+
+    <!-- ── ROUTEN-PLANER ── -->
+    <div class="routing-box">
+        <h3>🗺️ Routen-Planer</h3>
+
+        <!-- Start -->
+        <div class="route-field">
+            <label>🟢 Start</label>
+            <div class="route-input-row">
+                <input id="routeFrom" type="text" placeholder="Adresse eingeben …">
+                <button class="btn-myloc" onclick="useMyLocation('from')" title="Meinen Standort verwenden">📍</button>
+                <button class="btn-pick-field" id="btnPickFrom" onclick="startPick('from')">🗺️</button>
+            </div>
+        </div>
+
+        <!-- Ziel -->
+        <div class="route-field">
+            <label>🔴 Ziel</label>
+            <div class="route-input-row">
+                <input id="routeTo" type="text" placeholder="Adresse eingeben …">
+                <button class="btn-myloc" onclick="useMyLocation('to')" title="Meinen Standort verwenden">📍</button>
+                <button class="btn-pick-field" id="btnPickTo" onclick="startPick('to')">🗺️</button>
+            </div>
+        </div>
+
+        <!-- Verkehrsmittel -->
+        <div class="routing-modes">
+            <button class="mode-btn active" data-mode="car"  onclick="onModeClick(event,'car')">🚗 Auto <span class="speed-badge" id="badge-car">40km/h</span></button>
+            <button class="mode-btn"        data-mode="foot" onclick="onModeClick(event,'foot')">🚶 Zu Fuß <span class="speed-badge" id="badge-foot">4km/h</span></button>
+            <button class="mode-btn"        data-mode="bike" onclick="onModeClick(event,'bike')">🚲 Fahrrad <span class="speed-badge" id="badge-bike">10km/h</span></button>
+        </div>
+
+        <!-- Aktionen -->
+        <div class="routing-actions">
+            <button class="btn-route"       onclick="calcRoute()">Route berechnen</button>
+            <button class="btn-route-clear" onclick="clearRoute()">✕ Löschen</button>
+        </div>
+
+        <div class="routing-result" id="routeResult"></div>
+        <div class="routing-error"  id="routeError"></div>
+    </div>
+
+    <div class="destination-grid" id="destinations"></div>
+</div>
+
+<!-- Lightbox -->
+<div id="imageModal" class="image-modal" onclick="closeLightbox()">
+    <span class="close" style="position:absolute;top:1rem;right:1.5rem;color:white;font-size:2.5rem;z-index:1" onclick="closeLightbox()">&times;</span>
+    <img class="image-modal-content" id="modalImage" onclick="event.stopPropagation()">
+    <div id="lightboxCaption"></div>
+</div>
+
+<!-- Geschwindigkeits-Popup -->
+<div id="speedPopup">
+    <div class="sp-title">⚙️ Durchschnittsgeschwindigkeit</div>
+    <div class="sp-mode" id="spModeName"></div>
+    <div class="sp-row">
+        <input type="number" id="spInput" min="1" max="200">
+        <span class="sp-unit">km/h</span>
+    </div>
+    <div class="sp-btns">
+        <button class="sp-ok"     onclick="saveSpeed()">✓ OK</button>
+        <button class="sp-cancel" onclick="closeSpeedPopup()">Abbrechen</button>
+    </div>
+</div>
+
+<!-- POI-Auswahl-Popup -->
+<div id="poiPopup">
+    <button class="poi-popup-close" onclick="closePOIPopup()">✕</button>
+    <div class="poi-popup-title">📍 Standort verwenden als …</div>
+    <div class="poi-popup-name" id="poiPopupName"></div>
+    <div class="poi-popup-btns">
+        <button class="poi-popup-btn start" onclick="usePOI('from')">🟢 Als Startadresse</button>
+        <button class="poi-popup-btn ziel"  onclick="usePOI('to')">🔴 Als Zieladresse</button>
+        <button class="poi-popup-btn"       onclick="usePOI('both')">📍 Start = Mein Standort &amp; Ziel = dieser Ort</button>
+    </div>
+</div>
+
+<!-- Kontext-Menü -->
+<div id="ctxMenu">
+    <div class="ctx-item" id="ctx-rename">✏️ Bild umbenennen</div>
+    <div class="ctx-item" id="ctx-replace">🔄 Bild ersetzen</div>
+    <div class="ctx-item" id="ctx-move">↔️ Bild verschieben</div>
+    <hr>
+    <div class="ctx-item danger" id="ctx-delete">🗑️ Bild löschen</div>
+</div>
+<input type="file" id="replaceInput" accept="image/*" style="display:none">
+
+<script>
+// ════════════════════════════════════════════
+//  REISEDATEN
+// ════════════════════════════════════════════
+const destinations = [
+    {
+        name:"Unawatuna / Galle", emoji:"🏖️", dates:"25.-28. März (3 Nächte)",
+        lat:6.0110991, lng:80.26164779999999,
+        description:"Perfekter Einstieg zum Ankommen. Goldene Strände, kristallklares Wasser und entspannte Atmosphäre erwarten uns. Hier können wir mit Schildkröten schnorcheln, Yoga im Dschungel praktizieren und das historische <span class=\"poi-link\" data-lat=\"6.0269\" data-lng=\"80.2167\" data-name=\"Galle Fort\">Galle Fort</span> erkunden. Wir wohnen im <span class=\"poi-link\" data-lat=\"5.9850\" data-lng=\"80.2456\" data-name=\"Green Escape Unawatuna\">Green Escape Unawatuna</span>.",
+        accommodation:{ name:"Green Escape Unawatuna", address:"Thalpe, North Road, Unawatuna 80600", contact:"+94 777 157 715", email:"info@greenescapeunawatuna.com" },
+        highlights:["UNESCO-Weltkulturerbe Galle Fort (holländische Festung aus dem 17. Jahrhundert)","Schnorcheln mit wilden Schildkröten am Dalawella Beach im flachen Wasser","Besuch der Sea Turtle Farm & Hatchery Koggala - nachts Schildkröten bei ihrer Wanderung beobachten","Jungle Beach: Versteckter, ruhiger Strand zum Entspannen","Unawatuna Beach & Dalawalle Beach: Weite Sandstrände mit seichtem Wasser"],
+        wellness:["Yoga im Sri Yoga Shala: Traditionelles Hatha Yoga in Dschungel-Lage","Hotel-Massagen: Traditionelle ayurvedische Massagen, Thai-Massagen - oft kurzfristig organisierbar","Thaproban Ayurveda: Ayurvedische Massagen und Behandlungen","Kleine Ayurveda-Häuser in Thalpe: traditionell und günstig"],
+        warning:"🚗 Mietwagenübernahme um 8:00 Uhr in Unawatuna vor Abfahrt nach Mirissa", folder:"unawatuna"
+    },
+    {
+        name:"Mirissa", emoji:"🐋", dates:"28.-30. März (2 Nächte)",
+        lat:5.9389918999999995, lng:80.4724992,
+        description:"Mirissa ist DER Ort für Walbeobachtungen! März und April ist die beste Zeit, um Blauwale und Delfine zu sehen. Neben dem Whale Watching erwarten uns traumhafte Strände und entspannte Vibes.",
+        accommodation:{ name:"Olu Ayurveda Resort", address:"810/15, Maradana Road, Thalaramba, Kamburugamuwa, Mirissa 81740", contact:"+94 775 030 038 oder +94 772 096 730", email:"info@oluayurvedabeach.lk" },
+        highlights:["Whale Watching: März/April ist Peak-Saison für Blauwale! (ca. 3-4 Stunden, frühmorgendlich)","Coconut Tree Hill: Ikonischer Aussichtspunkt für spektakuläre Sonnenuntergänge","Parrot Rock: Kleiner Felsen im Meer, perfekt für Fotos mit Sonnenuntergang","Secret Beach: Versteckter Strand für Ruhesuchende","Schnorcheln mit Meeresschildkröten im flachen Wasser","Auf der Fahrt nach Tangalle: Dickwella Beach & Hiriketiya Beach besuchen"],
+        wellness:["Authentische ayurvedische Kuren mit täglichen Ganzkörperbehandlungen (ca. 45-60 Min.)","Spezifische Behandlungen: Nacken-Schulter-Massagen, Gesichtsbehandlungen, Dampfbäder","Traditionelle Kräuterstempelmassagen (Hot Herbal Bundles)","Yoga-Sessions (ca. 90 Minuten) mit Asanas, Pranayama und Meditation","Eigener Spa- und Wellnessbereich, bietet auch ayurvedische Kochkurse"],
+        folder:"mirissa"
+    },
+    {
+        name:"Tangalle", emoji:"🐢", dates:"30. März - 2. April (3 Nächte)",
+        lat:6.0427713999999995, lng:80.81662370000001,
+        description:"Tangalle bietet unberührte Natur und absolute Ruhe. Wir beobachten Schildkröten bei der nächtlichen Eiablage am Rekawa Beach und lassen uns bei ayurvedischen Behandlungen verwöhnen.",
+        accommodation:{ name:"Lagoon Paradise Beach Resort", address:"Marakolliya, Kapuhenwala Road, Tangalle 82200", contact:"+94 775 115 846, +94 472 242 509 oder 528, +94 770 442 509", email:"info@lagoonparadisebeachresort.com", note:"💡 Tipp: Per Telefon buchen (günstiger!)" },
+        highlights:["Tangalle Beach: Schildkröten-Eiablage beobachten (Hochsaison März/April!)","Kayak-Tour durch die Mangroven","Mulkirigala Tempel: Antiker Höhlentempel auf einem Felsen mit Panoramablick"],
+        wellness:["Full-Service-Spa mit Behandlungen und Massagen","Sauna und Dampfbad verfügbar","Verschiedene Massageangebote im Rahmen von Wellnesspaketen","Möglichkeit für authentische Ayurveda-Kuren","Yoga-Kurse können vor Ort angefragt werden","Ruhige Atmosphäre direkt am Strand für Entspannung"],
+        folder:"tangalle"
+    },
+    {
+        name:"Yala National Park", emoji:"🐆", dates:"2.-3. April (1 Nacht)",
+        lat:6.2180215, lng:81.3243531,
+        description:"Der Yala Nationalpark hat die höchste Leopardendichte der Welt! Block 1 bietet die besten Chancen für Sichtungen. Neben Leoparden erwarten uns Elefanten, Krokodile, Wasserbüffel und über 200 Vogelarten.",
+        accommodation:{ name:"Udara Guest Yala by Yala Safari Wonders", address:"23/1, Kirinda Godana, kirinda, Tissamaharama 82600", contact:"+94 774 581 243", email:"pasinduudara357@gmail.com", included:"Private Halbtags-Safaritour inklusive!" },
+        highlights:["Nachmittags-Safari im Block 1 – höchste Leopardendichte weltweit!","Sithulpawwa Tempel – antiker Tempel mitten im Park mit spektakulärer Aussicht","Auf der Fahrt zum Nationalpark Udawalawe: Tissa Wewa See in Tissamaharama"],
+        folder:"yala"
+    },
+    {
+        name:"Udawalawe National Park", emoji:"🐘", dates:"3.-5. April (2 Nächte)",
+        lat:6.411899999999999, lng:80.7974395,
+        description:"Udawalawe ist DAS Elefanten-Paradies Sri Lankas! Hunderte Elefanten leben hier in freier Wildbahn. Auf unserer Ganztagssafari beobachten wir die Tiere in ihrem natürlichen Lebensraum hautnah.",
+        accommodation:{ name:"Hasthi-Safari Tour", address:"Thanamalwila Road, Udawalawe 70190", contact:"+94 768 305 600 (Dasun)", email:"hasthisafaricottage@gmail.com", included:"Ganztags-Safaritour und Vollverpflegung inklusive!" },
+        highlights:["Ganztagssafari im Udawalawe Nationalpark – Elefantensichtungen garantiert!","Elephant Transit Home – Fütterung verwaister Babyelefanten (ohne direkten Kontakt, ethisch korrekt)","Buduruwagala Felsentempel","Diyaluma Falls: Spektakulärer Wasserfall mit Badegelegenheit in Wasserbecken","Ravana Ella Falls: Beeindruckender Wasserfall vor Ella, ideal zum Baden"],
+        warning:"🍽️ Frühstück und Mittagessen als Picknick im Park inklusive!",
+        note:"Hasthi-Safari Tour hat eine Kneipe oben bei den Diyaluma Falls mit Parkmöglichkeiten",
+        folder:"udawalawe"
+    },
+    {
+        name:"Ella", emoji:"🏔️", dates:"5.-8. April (3 Nächte)",
+        lat:6.8786222, lng:81.0603388,
+        description:"Ella ist das Juwel der Highlands – grüne Teeberge, dramatische Wasserfälle und die berühmte Nine Arch Bridge. Perfekt für uns, Wanderungen, Yoga und die beste Aussicht Sri Lankas zu genießen!",
+        accommodation:{ name:"Tunnel Top Inn Ella", address:"Nine Arch Rd, Ella 90090", contact:"+94 70 336 8412, +94 72 259 8218", email:"tunneltopella@gmail.com" },
+        highlights:["Nine Arch Bridge: Ikonische Steinbrücke inmitten der Teeplantagen von Ella","Little Adam's Peak: Wanderung mit spektakulärer 360°-Aussicht","Tagesausflug zum Horton Plain's Nationalpark mit World's End (Abfahrt 5:30 Uhr)","Tagesausflug zum Lipton's Seat mit Panoramablick bis zum Meer (Abfahrt 6:00 Uhr)","Nil Diya Pokuna: Höhlensystem mit tiefblauem unterirdischen See","Abend-Kochkurs im Spice Garden von Ella","Auf dem Weg nach Kandy: Halpewatte Tea Factory, Nuwara Eliya, diverse Wasserfälle"],
+        warning:"🚗🚂 Mietwagen-Rückgabe am letzten Tag → Zug nach Kandy (Klasse 2)!",
+        folder:"ella"
+    },
+    {
+        name:"Kandy", emoji:"🙏", dates:"8.-9. April (1 Nacht)",
+        lat:7.288581400000001, lng:80.6391508,
+        description:"Kandy ist das kulturelle und spirituelle Zentrum Sri Lankas. Die Stadt beherbergt den heiligen Zahntempel und bietet uns eine perfekte Mischung aus Kultur, Natur und Entspannung.",
+        accommodation:{ name:"Oak Ray Heritage Hotel", address:"67/69, Rajapihilla Mawatha, Kandy 20000", contact:"+94 775 030 038, +94 81 220 3070", email:"asm@oakrayhotel.com, heritage@oakrayhotels.com" },
+        highlights:["Temple of the Tooth (Zahntempel) – heiligster buddhistischer Tempel Sri Lankas","Kandy Lake: Entspannter Spaziergang um den See (liegt auf dem Weg vom Hotel zum Zahntempel)","Botanischer Garten Peradeniya – einer der schönsten in Asien (mit dem Bus in 1h erreichbar)","Bambaragala Cave Temple (ca. 1h Fahrt): 250 Jahre alter Tempel mit Kunstwerken aus der Kandyan-Ära","Rangala Naturpool: Wunderschön in der Natur gelegen"],
+        warning:"🚂 Anreise mit der berühmten Zugfahrt von Ella!",
+        folder:"kandy"
+    },
+    {
+        name:"Sigiriya / Dambulla", emoji:"🏛️", dates:"9.-12. April (3 Nächte)",
+        lat:7.8522319, lng:80.66210559999999,
+        description:"Das Kulturdreieck Sri Lankas! Hier erwarten euch UNESCO-Weltkulturerbestätten, der legendäre Löwenfelsen von Sigiriya, goldene Höhlentempel und die Ruinen der ersten Hauptstadt.",
+        accommodation:{ name:"Nature's Retreat Dambulla", address:"46/5A Rathmalgahaela, Dambulla 21100", contact:"+94 716 413 770, +94 763 415 935", email:"thenatureresortdambulla@gmail.com" },
+        highlights:["Dambulla Höhlentempel – 5 goldene Höhlen mit über 150 Buddha-Statuen","Polonnaruwa – Gal Vihara (4 riesige Buddha-Statuen aus dem Fels gemeißelt)","Sigiriya Rock (Löwenfelsen): 200m Aufstieg früh um 07:00!","Pidurangala Royal Cave Temple: Altes Kloster mit riesiger liegender Buddha-Statue","Pidurangala Rock: Alternativer Felsen mit spektakulärem Blick auf Sigiriya","Deraniyagala Cave: Am Fuß des Sigiriya Rocks mit antiken Fresken"],
+        wellness:["Sundaras Jungles Resort & Spa: Tägliche Spa-Massagen in Dschungel-Atmosphäre","Jetwing Lake: Thailändische und ayurvedische Massagen in eigenem Spa-Bereich","Kalundewa Retreat: Yoga-Stunden in der Natur, Meditation sowie Spa mit verschiedenen Anwendungen"],
+        folder:"dambulla"
+    },
+    {
+        name:"Negombo & Colombo", emoji:"🏖️", dates:"12.-14. April (2 Nächte)",
+        lat:7.237124199999999, lng:79.8471948,
+        description:"Negombo liegt nur 20 Minuten vom Flughafen entfernt. Genießt den Strand, besucht den farbenfrohen Fischmarkt und erkundet Colombos Kultur. Der perfekte Ausklang unserer Reise.",
+        accommodation:{ name:"Ayur Ayur Ayurveda Negombo", address:"14, Kattuwa Road, Eththukala, Negombo 11500", contact:"+94 750 427 975", email:"info@ayurayur.com" },
+        highlights:["Negombo Fischmarkt: Früh morgens besuchen","Negombo Lagune: Bootsfahrt durch die Lagunenlandschaft","Gangaramaya Temple: Einzigartiger Museums-Mix","Jami Ul-Alfar Moschee (Rote Moschee): Beeindruckendes Bauwerk","Lotus Tower: Aussicht auf die ganze Stadt Colombo","Galle Face Green: Spaziergang am Meer"],
+        wellness:["Ganzkörpermassagen (Abhyanga): Traditionelle Massage mit Kräuterölen (ca. 70 Min.)","Shirodhara: Der klassische ayurvedische Stirnguss mit warmem Öl (ca. 40 Min.)","Gezielte Massagen: Für Gesicht, Nacken/Schulter, Rücken sowie Fuß- und Beinmassagen","Reinigungsbäder: Kräuterbäder, Blumenbäder und Dampfbäder (Svedana)","Pindaswedha (Kräuterstempel-Massage)","Nasya Karma (Nasenreinigung)","Spezielle Kerala-Panchakarma-Kuren zur Entgiftung","Umfangreiche Yoga-Plattformen und Meditationen"],
+        warning:"🚗 Mietwagen-Rückgabe 12.04. um 17:00! ✈️ Abreise am 14. April",
+        folder:"negombo"
+    }
+];
+
+// ════════════════════════════════════════════
+//  INDEXEDDB  –  persistente Bilderspeicherung
+// ════════════════════════════════════════════
+let _db = null;
+function openDB() {
+    return new Promise((res,rej) => {
+        if (_db) return res(_db);
+        const r = indexedDB.open('SriLanka2026_v2', 1);
+        r.onupgradeneeded = e => e.target.result.createObjectStore('photos');
+        r.onsuccess = e => { _db = e.target.result; res(_db); };
+        r.onerror   = e => rej(e.target.error);
+    });
+}
+async function dbGet(k)   { const db=await openDB(); return new Promise((res,rej)=>{ const r=db.transaction('photos','readonly').objectStore('photos').get(k); r.onsuccess=e=>res(e.target.result||[]); r.onerror=e=>rej(e.target.error); }); }
+async function dbPut(k,v) { const db=await openDB(); return new Promise((res,rej)=>{ const r=db.transaction('photos','readwrite').objectStore('photos').put(v,k); r.onsuccess=()=>res(v); r.onerror=e=>rej(e.target.error); }); }
+async function dbDel(k)   { const db=await openDB(); return new Promise((res,rej)=>{ const r=db.transaction('photos','readwrite').objectStore('photos').delete(k); r.onsuccess=()=>res(); r.onerror=e=>rej(e.target.error); }); }
+
+function readFileAsImg(file) {
+    return new Promise((res,rej) => {
+        const rd = new FileReader();
+        rd.onload  = e => res({ id: Date.now()+'-'+Math.random(), name: file.name.replace(/\.[^/.]+$/,''), data: e.target.result });
+        rd.onerror = rej;
+        rd.readAsDataURL(file);
+    });
+}
+
+// ════════════════════════════════════════════
+//  KARTE  –  ✅ Durchgezogene Linie
+// ════════════════════════════════════════════
+const map = L.map('map').setView([7.8731, 80.7718], 7);
+L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', { attribution:'© OpenStreetMap contributors' }).addTo(map);
+
+const greenIcon = L.icon({
+    iconUrl:'https://raw.githubusercontent.com/pointhi/leaflet-color-markers/master/img/marker-icon-2x-green.png',
+    shadowUrl:'https://cdnjs.cloudflare.com/ajax/libs/leaflet/0.7.7/images/marker-shadow.png',
+    iconSize:[25,41], iconAnchor:[12,41], popupAnchor:[1,-34], shadowSize:[41,41]
+});
+
+const coords = [];
+destinations.forEach((d,i) => {
+    coords.push([d.lat, d.lng]);
+    const m = L.marker([d.lat,d.lng],{icon:greenIcon}).addTo(map);
+    m.bindPopup(`<h3>${d.emoji} ${d.name}</h3><p><strong>${d.dates}</strong></p><p>${d.description.substring(0,100)}…</p><p style="margin-top:8px"><strong>🏨 ${d.accommodation.name}</strong></p>`);
+    m.on('click', () => document.getElementById('dest-'+i).scrollIntoView({behavior:'smooth'}));
+});
+L.polyline(coords, { color:'#4CAF50', weight:3, opacity:0.8 }).addTo(map); // kein dashArray → durchgezogen
+
+// ════════════════════════════════════════════
+//  STANDORT  –  GPS + IP-Fallback
+// ════════════════════════════════════════════
+let gpsMarker    = null;
+let gpsAccCircle = null;
+let gpsWatchId   = null;
+let ipLocDone    = false;   // verhindert Überschreiben durch IP wenn GPS schon läuft
+
+// Pulsierender roter Kreis-Icon
+function makeRedDot(accurate) {
+    const size  = accurate ? 16 : 20;
+    const color = accurate ? 'red' : '#e65100';
+    const title = accurate ? '' : ' title="Ungefährer Standort (IP-basiert)"';
+    return L.divIcon({
+        className: '',
+        html: `<div${title} style="width:${size}px;height:${size}px;border-radius:50%;background:${color};border:3px solid white;box-shadow:0 0 0 2px ${color};animation:gpsPulse 1.2s infinite;"></div>`,
+        iconSize: [size,size], iconAnchor: [size/2,size/2]
+    });
+}
+
+function placeMarker(lat, lng, acc, accurate) {
+    if (gpsMarker) {
+        gpsMarker.setLatLng([lat,lng]);
+        gpsMarker.setIcon(makeRedDot(accurate));
+        if (gpsAccCircle) { gpsAccCircle.setLatLng([lat,lng]); gpsAccCircle.setRadius(acc); }
+    } else {
+        gpsMarker = L.marker([lat,lng], {icon:makeRedDot(accurate), zIndexOffset:1000}).addTo(map);
+        gpsMarker.bindPopup(accurate ? '📍 Ihr aktueller Standort (GPS)' : '📍 Ungefährer Standort (IP-basiert)');
+        gpsAccCircle = L.circle([lat,lng], {radius:acc, color:'red', fillColor:'red', fillOpacity:0.07, weight:1}).addTo(map);
+    }
+}
+
+// ── 1. Versuch: echtes GPS ──
+function tryGPS() {
+    if (!navigator.geolocation) { tryIPLocation(); return; }
+
+    gpsWatchId = navigator.geolocation.watchPosition(
+        pos => {
+            ipLocDone = true;   // GPS hat Vorrang, IP-Ergebnis ignorieren
+            placeMarker(pos.coords.latitude, pos.coords.longitude, pos.coords.accuracy, true);
+        },
+        err => {
+            // GPS verweigert oder nicht verfügbar → IP-Fallback
+            console.warn('GPS nicht verfügbar:', err.message);
+            if (!ipLocDone) tryIPLocation();
+        },
+        { enableHighAccuracy:true, maximumAge:5000, timeout:10000 }
+    );
+}
+
+// ── 2. Fallback: IP-basierter Standort (funktioniert auch ohne GPS-Erlaubnis) ──
+async function tryIPLocation() {
+    if (ipLocDone) return;
+    try {
+        const r    = await fetch('https://ipapi.co/json/');
+        const data = await r.json();
+        if (data.latitude && data.longitude && !ipLocDone) {
+            ipLocDone = true;
+            placeMarker(data.latitude, data.longitude, 5000, false);
+            // IP-Genauigkeit ~5 km → Radius 5000 m
+        }
+    } catch(e) {
+        console.warn('IP-Standort nicht verfügbar:', e);
+    }
+}
+
+// Beide parallel starten
+tryGPS();
+setTimeout(tryIPLocation, 3000);  // IP-Fallback nach 3 s wenn GPS noch nichts geliefert hat
+
+// ════════════════════════════════════════════
+//  STATIONS-KARTEN
+// ════════════════════════════════════════════
+destinations.forEach((d,i) => {
+    const c = document.createElement('div');
+    c.className='destination-card'; c.id='dest-'+i;
+    c.innerHTML=`
+        <div class="destination-header"><h2>${d.emoji} ${d.name}</h2><p>${d.dates}</p></div>
+        <div class="destination-content">
+            <p>${d.description}</p>
+            <div class="info-buttons">
+                <button class="info-button" onclick="showAccommodation(${i})">🏨 Unterkunft</button>
+                <button class="info-button" onclick="showImages(${i})">📸 Bilder</button>
+                <button class="info-button" onclick="showHighlights(${i})">🎯 Highlights</button>
+                ${d.wellness?`<button class="info-button" onclick="showWellness(${i})">🧘 Wellness & Yoga</button>`:''}
+            </div>
+        </div>`;
+    document.getElementById('destinations').appendChild(c);
+});
+
+// ════════════════════════════════════════════
+//  MODAL ENGINE
+// ════════════════════════════════════════════
+function openModal(title, bodyHTML) {
+    let m = document.getElementById('infoModal');
+    if (!m) { m=document.createElement('div'); m.id='infoModal'; m.className='modal'; document.body.appendChild(m); }
+    m.innerHTML=`
+        <div class="modal-content">
+            <div class="modal-header"><h2>${title}</h2><span class="close" onclick="closeModal()">&times;</span></div>
+            <div class="modal-body" id="modalBody">${bodyHTML}</div>
+        </div>`;
+    m.onclick = e => { if(e.target===m) closeModal(); };
+    m.style.display='block';
+}
+function closeModal() {
+    const m=document.getElementById('infoModal');
+    if(m) m.style.display='none';
+    hideCtx();
+}
+
+// ════════════════════════════════════════════
+//  UNTERKUNFT
+// ════════════════════════════════════════════
+function showAccommodation(i) {
+    const a=destinations[i].accommodation, d=destinations[i];
+    openModal(`🏨 Unterkunft - ${d.name}`,`
+        <div class="accommodation-details">
+            <strong>${a.name}</strong>
+            <p>📍 ${a.address}</p><p>📞 ${a.contact}</p><p>✉️ ${a.email}</p>
+            ${a.included?`<p style="color:#4CAF50;font-weight:bold;margin-top:1rem">✓ ${a.included}</p>`:''}
+            ${a.note?`<div class="highlight-box" style="margin-top:1rem">${a.note}</div>`:''}
+        </div>`);
+}
+
+// ════════════════════════════════════════════
+//  HIGHLIGHTS & WELLNESS
+// ════════════════════════════════════════════
+function showHighlights(i) {
+    const d=destinations[i];
+    let h=`<ul>${d.highlights.map(x=>`<li>${x}</li>`).join('')}</ul>`;
+    if(d.warning) h+=`<div class="warning-box"><strong>⚠️ Wichtig:</strong> ${d.warning}</div>`;
+    if(d.note)    h+=`<div class="highlight-box">${d.note}</div>`;
+    openModal(`🎯 Highlights & Aktivitäten - ${d.name}`, h);
+}
+function showWellness(i) {
+    const d=destinations[i]; if(!d.wellness) return;
+    openModal(`🧘 Wellness & Yoga - ${d.name}`,`<ul>${d.wellness.map(w=>`<li>${w}</li>`).join('')}</ul>`);
+}
+
+// ════════════════════════════════════════════
+//  BILDER-GALERIE MIT UPLOAD + GITHUB-GRUNDSTOCK
+// ════════════════════════════════════════════
+let activeDest   = -1;
+
+// ── GitHub-Konfiguration ──
+// Passen Sie GITHUB_USER und GITHUB_REPO an Ihr Repository an:
+const GITHUB_USER   = 'susi090276';          // GitHub-Benutzername
+const GITHUB_REPO   = 'srilanka-reise';      // Repository-Name
+const GITHUB_BRANCH = 'hauptsächlich';       // Branch-Name
+
+// Cache für GitHub-Bilder (vermeidet wiederholte API-Anfragen)
+const ghCache = {};
+
+async function loadGitHubImages(folder) {
+    if (ghCache[folder] !== undefined) return ghCache[folder];
+    try {
+        const url = `https://api.github.com/repos/${GITHUB_USER}/${GITHUB_REPO}/contents/fotos/${folder}?ref=${encodeURIComponent(GITHUB_BRANCH)}`;
+        const r   = await fetch(url, { headers: { 'Accept': 'application/vnd.github.v3+json' } });
+        if (!r.ok) { ghCache[folder] = []; return []; }
+        const files = await r.json();
+        const imgs  = files
+            .filter(f => /\.(jpg|jpeg|png|webp|gif)$/i.test(f.name))
+            .map(f => ({
+                // Leerzeichen und Sonderzeichen im Dateinamen korrekt dekodieren
+                name:   decodeURIComponent(f.name.replace(/\+/g,' ')).replace(/\.[^.]+$/, ''),
+                data:   f.download_url,
+                github: true
+            }));
+        ghCache[folder] = imgs;
+        return imgs;
+    } catch(e) {
+        ghCache[folder] = [];
+        return [];
+    }
+}
+
+async function showImages(i) {
+    activeDest = i;
+    const folder    = destinations[i].folder;
+    const localImgs = await dbGet(folder);
+    const ghImgs    = await loadGitHubImages(folder);
+
+    // Beim ersten Laden: GitHub-Bilder VOR lokale Bilder stellen
+    // Danach wird die Reihenfolge in einer eigenen DB-Schlüssel gespeichert
+    const orderKey  = folder + '__order';
+    const saved     = await dbGet(orderKey);
+
+    let combined;
+    if (saved && saved.length > 0) {
+        // Gespeicherte Reihenfolge verwenden
+        combined = saved;
+        // Neue GitHub-Bilder anfügen die noch nicht in der gespeicherten Reihenfolge sind
+        const knownUrls = new Set(combined.map(x => x.data));
+        ghImgs.forEach(g => { if (!knownUrls.has(g.data)) combined.push(g); });
+    } else {
+        // Erstmalig: GitHub zuerst, dann lokale
+        combined = [...ghImgs, ...localImgs];
+    }
+
+    renderGallery(combined);
+}
+
+// Speichert die kombinierte Reihenfolge in IndexedDB
+async function saveCombined(imgs) {
+    const folder   = destinations[activeDest].folder;
+    const orderKey = folder + '__order';
+    await dbPut(orderKey, imgs);
+}
+
+function renderGallery(imgs) {
+    const d     = destinations[activeDest];
+    const total = imgs.length;
+    const ghCount    = imgs.filter(x => x.github).length;
+    const localCount = total - ghCount;
+
+    const gridHTML = total === 0
+        ? `<div class="empty-gallery"><div class="empty-icon">📷</div>
+               <p>Noch keine Bilder für <strong>${d.name}</strong>.</p>
+               <p style="font-size:.8rem;color:#ccc;margin-top:.4rem">Bilder per Drag&nbsp;&amp;&nbsp;Drop oder Klick unten hinzufügen</p>
+           </div>`
+        : `<div class="gallery-toolbar">
+               <span class="gallery-count">${total} Bild${total!==1?'er':''}
+                   ${ghCount    ? `<small style="color:#aaa"> · 🌐 ${ghCount} von GitHub</small>` : ''}
+                   ${localCount ? `<small style="color:#aaa"> · 📱 ${localCount} eigene</small>` : ''}
+                   <small style="color:#aaa"> · Rechtsklick = Optionen · Ziehen = Tauschen · Doppelklick = Vollbild</small>
+               </span>
+               ${localCount ? `<button class="btn-clear-all" onclick="clearAll()">🗑 Eigene löschen</button>` : ''}
+           </div>
+           <div class="image-grid" id="imgGrid">
+               ${imgs.map((img, idx) => `
+               <div class="img-cell${img.github ? ' gh-cell' : ''}" id="cell${idx}" data-idx="${idx}"
+                    onmousedown="cellMouseDown(event,${idx})"
+                    oncontextmenu="${img.github ? 'showCtxGH(event,' + idx + ')' : 'showCtx(event,' + idx + ')'}">
+                   <img src="${img.data}" alt="${esc(img.name)}"
+                        ondblclick="openLightbox('${escJ(img.data)}','${escJ(img.name)}')">
+                   <span class="img-caption">${esc(img.name)}</span>
+               </div>`).join('')}
+           </div>`;
+
+    const footerHTML = `
+        <div class="drop-zone" id="dz"
+             ondragover="dzOver(event)" ondragleave="dzLeave()" ondrop="dzDrop(event)">
+            <input type="file" accept="image/*" multiple onchange="filesPicked(event)">
+            <div class="drop-zone-icon">📸</div>
+            <div class="drop-zone-text">Eigene Fotos hier ablegen oder klicken zum Auswählen</div>
+            <div class="drop-zone-hint">Smartphone: Galerie oder Kamera öffnet sich · JPG, PNG, WEBP, GIF</div>
+        </div>
+        <p style="font-size:.75rem;color:#bbb;margin-top:.5rem">🌐 GitHub-Bilder werden automatisch geladen · 💾 Eigene Bilder lokal gespeichert</p>`;
+
+    let m = document.getElementById('infoModal');
+    if (!m) { m=document.createElement('div'); m.id='infoModal'; m.className='modal'; document.body.appendChild(m); }
+    m.innerHTML=`
+        <div class="modal-content gallery-modal">
+            <div class="gm-header">
+                <h2>📸 Bilder - ${d.name}</h2>
+                <span class="close" onclick="closeModal()">&times;</span>
+            </div>
+            <div class="gm-scroll">${gridHTML}</div>
+            <div class="gm-footer">${footerHTML}</div>
+        </div>`;
+    m.onclick = e => { if(e.target===m) closeModal(); };
+    m.style.display='block';
+}
+
+function esc(s)  { return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;'); }
+function escJ(s) { return String(s).replace(/\\/g,'\\\\').replace(/'/g,"\\'"); }
+
+// ── Upload ──
+async function filesPicked(e) { await addImgs([...e.target.files]); }
+function dzOver(e)  { e.preventDefault(); document.getElementById('dz').classList.add('over'); }
+function dzLeave()  { const z=document.getElementById('dz'); if(z) z.classList.remove('over'); }
+async function dzDrop(e) {
+    e.preventDefault(); dzLeave();
+    await addImgs([...e.dataTransfer.files].filter(f=>f.type.startsWith('image/')));
+}
+async function addImgs(files) {
+    if(!files.length) return;
+    const folder   = destinations[activeDest].folder;
+    const orderKey = folder + '__order';
+    const saved    = await dbGet(orderKey);
+    const fresh    = await Promise.all(files.map(readFileAsImg));
+
+    let combined;
+    if (saved && saved.length > 0) {
+        combined = [...saved, ...fresh];
+    } else {
+        const localImgs = await dbGet(folder);
+        const ghImgs    = ghCache[folder] || [];
+        combined = [...ghImgs, ...localImgs, ...fresh];
+    }
+
+    // Lokale Bilder separat speichern (für Backup)
+    const localOnly = combined.filter(x => !x.github);
+    await dbPut(folder, localOnly);
+    await saveCombined(combined);
+    renderGallery(combined);
+}
+
+async function clearAll() {
+    if(!confirm(`Alle eigenen Bilder für ${destinations[activeDest].name} löschen?`)) return;
+    const folder   = destinations[activeDest].folder;
+    const orderKey = folder + '__order';
+    await dbDel(folder);
+    // Reihenfolge auf nur noch GitHub-Bilder reduzieren
+    const ghImgs = ghCache[folder] || [];
+    if (ghImgs.length > 0) {
+        await dbPut(orderKey, ghImgs);
+        renderGallery(ghImgs);
+    } else {
+        await dbDel(orderKey);
+        renderGallery([]);
+    }
+}
+
+// ════════════════════════════════════════════
+//  DRAG & DROP – POSITIONSTAUSCH via Mouse Events
+// ════════════════════════════════════════════
+let dragIdx   = null;
+let dragGhost = null;
+let lastOver  = null;
+
+function cellMouseDown(e, idx) {
+    if (e.button !== 0) return;
+    e.preventDefault();
+    dragIdx = idx;
+
+    const cell = document.getElementById('cell'+idx);
+    const img  = cell.querySelector('img');
+    dragGhost  = document.createElement('img');
+    dragGhost.src = img.src;
+    dragGhost.style.cssText = [
+        'position:fixed','pointer-events:none','z-index:99998',
+        'width:'+cell.offsetWidth+'px','height:'+img.offsetHeight+'px',
+        'object-fit:cover','border-radius:8px',
+        'opacity:0.75','box-shadow:0 6px 20px rgba(0,0,0,0.4)',
+        'transform:rotate(2deg) scale(1.05)','transition:none'
+    ].join(';');
+    posGhost(e);
+    document.body.appendChild(dragGhost);
+    cell.classList.add('dragging');
+
+    document.addEventListener('mousemove', onDragMove);
+    document.addEventListener('mouseup',   onDragUp);
+}
+
+function posGhost(e) {
+    if (!dragGhost) return;
+    dragGhost.style.left = (e.clientX - dragGhost.offsetWidth  / 2) + 'px';
+    dragGhost.style.top  = (e.clientY - dragGhost.offsetHeight / 2) + 'px';
+}
+
+function onDragMove(e) {
+    posGhost(e);
+    dragGhost.style.visibility = 'hidden';
+    const el = document.elementFromPoint(e.clientX, e.clientY);
+    dragGhost.style.visibility = 'visible';
+    const cell  = el ? el.closest('.img-cell') : null;
+    const toIdx = cell ? parseInt(cell.dataset.idx) : -1;
+    document.querySelectorAll('.img-cell').forEach(c => c.classList.remove('drop-over'));
+    if (cell && toIdx !== dragIdx) { cell.classList.add('drop-over'); lastOver = toIdx; }
+    else { lastOver = null; }
+}
+
+async function onDragUp(e) {
+    document.removeEventListener('mousemove', onDragMove);
+    document.removeEventListener('mouseup',   onDragUp);
+    if (dragGhost) { dragGhost.remove(); dragGhost = null; }
+    document.querySelectorAll('.img-cell').forEach(c => c.classList.remove('dragging','drop-over'));
+    const toIdx = lastOver;
+    lastOver = null;
+    if (dragIdx === null || toIdx === null || toIdx === dragIdx) { dragIdx = null; return; }
+
+    // Kombiniertes Array laden (GitHub + lokale Bilder)
+    const folder   = destinations[activeDest].folder;
+    const orderKey = folder + '__order';
+    let imgs = await dbGet(orderKey);
+    if (!imgs || imgs.length === 0) {
+        const localImgs = await dbGet(folder);
+        const ghImgs    = ghCache[folder] || [];
+        imgs = [...ghImgs, ...localImgs];
+    }
+    // ── Tausch ──
+    const tmp     = imgs[dragIdx];
+    imgs[dragIdx] = imgs[toIdx];
+    imgs[toIdx]   = tmp;
+    await saveCombined(imgs);
+    const localOnly = imgs.filter(x => !x.github);
+    await dbPut(folder, localOnly);
+    dragIdx = null;
+    renderGallery(imgs);
+}
+
+// ════════════════════════════════════════════
+//  KONTEXT-MENÜ  (Rechtsklick auf Bild)
+// ════════════════════════════════════════════
+let ctxIdx = null;
+function showCtx(e,idx) {
+    e.preventDefault(); e.stopPropagation();
+    ctxIdx = idx;
+    // Alle Menü-Optionen einblenden für lokale Bilder
+    document.getElementById('ctx-rename').style.display  = '';
+    document.getElementById('ctx-replace').style.display = '';
+    document.getElementById('ctx-delete').style.display  = '';
+    document.getElementById('ctx-move').style.display    = '';
+    const m = document.getElementById('ctxMenu');
+    m.style.display='block';
+    let x=e.clientX, y=e.clientY;
+    m.style.left='0'; m.style.top='0';
+    const mw=m.offsetWidth, mh=m.offsetHeight;
+    if(x+mw>window.innerWidth)  x=window.innerWidth-mw-6;
+    if(y+mh>window.innerHeight) y=window.innerHeight-mh-6;
+    m.style.left=x+'px'; m.style.top=y+'px';
+}
+function hideCtx() { document.getElementById('ctxMenu').style.display='none'; ctxIdx=null; }
+document.addEventListener('click', hideCtx);
+
+// Löschen
+document.getElementById('ctx-delete').addEventListener('click', async () => {
+    if(ctxIdx===null) return;
+    const savedIdx = ctxIdx;
+    hideCtx();
+    const folder   = destinations[activeDest].folder;
+    const orderKey = folder + '__order';
+    let imgs = await dbGet(orderKey);
+    if (!imgs || imgs.length === 0) {
+        const localImgs = await dbGet(folder);
+        const ghImgs    = ghCache[folder] || [];
+        imgs = [...ghImgs, ...localImgs];
+    }
+    imgs.splice(savedIdx, 1);
+    await saveCombined(imgs);
+    const localOnly = imgs.filter(x => !x.github);
+    await dbPut(folder, localOnly);
+    renderGallery(imgs);
+});
+
+// Umbenennen – öffnet ein eingebettetes Eingabefeld direkt in der Galerie
+document.getElementById('ctx-rename').addEventListener('click', async () => {
+    if(ctxIdx===null) return;
+    const savedIdx = ctxIdx;
+    hideCtx();
+
+    const folder   = destinations[activeDest].folder;
+    const orderKey = folder + '__order';
+    let imgs = await dbGet(orderKey);
+    if (!imgs || imgs.length === 0) {
+        const localImgs = await dbGet(folder);
+        const ghImgs    = ghCache[folder] || [];
+        imgs = [...ghImgs, ...localImgs];
+    }
+    const oldName = imgs[savedIdx].name;
+
+    const cell = document.getElementById('cell'+savedIdx);
+    if (!cell) return;
+    const caption = cell.querySelector('.img-caption');
+    if (cell.querySelector('.rename-input')) return;
+
+    const inp = document.createElement('input');
+    inp.type      = 'text';
+    inp.value     = oldName;
+    inp.className = 'rename-input';
+    inp.style.cssText = 'width:100%;margin-top:4px;padding:3px 6px;border:1.5px solid #4CAF50;border-radius:5px;font-size:0.78rem;text-align:center;outline:none;';
+
+    caption.style.display = 'none';
+    cell.appendChild(inp);
+    inp.focus(); inp.select();
+
+    async function commitRename() {
+        const newName = inp.value.trim();
+        inp.remove(); caption.style.display = '';
+        if (!newName || newName === oldName) return;
+        let fresh = await dbGet(orderKey);
+        if (!fresh || fresh.length === 0) fresh = imgs;
+        fresh[savedIdx].name = newName;
+        await saveCombined(fresh);
+        const localOnly = fresh.filter(x => !x.github);
+        await dbPut(folder, localOnly);
+        renderGallery(fresh);
+    }
+
+    inp.addEventListener('keydown', e => {
+        if (e.key === 'Enter')  { e.preventDefault(); commitRename(); }
+        if (e.key === 'Escape') { inp.remove(); caption.style.display=''; }
+    });
+    inp.addEventListener('blur', commitRename);
+});
+
+// Ersetzen – ctxIdx vor hideCtx sichern; neues Bild übernimmt den Namen der neuen Datei
+document.getElementById('ctx-replace').addEventListener('click', () => {
+    if(ctxIdx===null) return;
+    const savedIdx = ctxIdx;
+    hideCtx();
+    const input = document.getElementById('replaceInput');
+    input._pendingIdx = savedIdx;
+    input.value = '';
+    input.click();
+});
+document.getElementById('replaceInput').addEventListener('change', async function() {
+    const savedIdx = this._pendingIdx;
+    if (!this.files.length || savedIdx === undefined || savedIdx === null) return;
+    const folder   = destinations[activeDest].folder;
+    const orderKey = folder + '__order';
+    let imgs = await dbGet(orderKey);
+    if (!imgs || imgs.length === 0) {
+        const localImgs = await dbGet(folder);
+        const ghImgs    = ghCache[folder] || [];
+        imgs = [...ghImgs, ...localImgs];
+    }
+    const newImg   = await readFileAsImg(this.files[0]);
+    imgs[savedIdx] = newImg;
+    await saveCombined(imgs);
+    const localOnly = imgs.filter(x => !x.github);
+    await dbPut(folder, localOnly);
+    renderGallery(imgs);
+    this.value = ''; this._pendingIdx = null;
+});
+
+// ════════════════════════════════════════════
+//  BILD VERSCHIEBEN  –  Touch-freundlich (Finger kleben)
+// ════════════════════════════════════════════
+let touchMoveIdx   = null;   // Quell-Index für Touch-Verschieben
+let touchGhost     = null;   // schwebendes Vorschaubild
+let touchLastOver  = null;   // Ziel-Index unter dem Finger
+
+document.getElementById('ctx-move').addEventListener('click', () => {
+    if (ctxIdx === null) return;
+    touchMoveIdx = ctxIdx;
+    hideCtx();
+
+    // Ghost aus dem Quell-Bild erzeugen
+    const cell = document.getElementById('cell' + touchMoveIdx);
+    if (!cell) { touchMoveIdx = null; return; }
+    const img  = cell.querySelector('img');
+
+    touchGhost = document.createElement('img');
+    touchGhost.src = img.src;
+    const r = cell.getBoundingClientRect();
+    touchGhost.style.cssText = [
+        'position:fixed','pointer-events:none','z-index:99998',
+        'width:'  + r.width  + 'px',
+        'height:' + r.height + 'px',
+        'object-fit:cover','border-radius:10px',
+        'opacity:0.80','box-shadow:0 8px 24px rgba(0,0,0,0.45)',
+        'transform:scale(1.06)',
+        'left:' + r.left + 'px',
+        'top:'  + r.top  + 'px',
+        'transition:none'
+    ].join(';');
+    document.body.appendChild(touchGhost);
+    cell.classList.add('dragging');
+
+    // Banner oben als Hinweis
+    const hint = document.createElement('div');
+    hint.id = 'moveHint';
+    hint.textContent = '👆 Bild auf Zielposition ziehen, dann loslassen';
+    hint.style.cssText = 'position:fixed;top:0;left:0;width:100%;background:#1B5E20;color:white;text-align:center;padding:.6rem;font-size:.9rem;z-index:99999;';
+    document.body.appendChild(hint);
+
+    document.addEventListener('touchmove',  onTouchMove,  { passive: false });
+    document.addEventListener('touchend',   onTouchEnd);
+    document.addEventListener('touchcancel',onTouchEnd);
+});
+
+function onTouchMove(e) {
+    e.preventDefault();  // Scroll verhindern
+    const t = e.touches[0];
+
+    // Ghost dem Finger folgen lassen (zentriert)
+    if (touchGhost) {
+        touchGhost.style.left = (t.clientX - touchGhost.offsetWidth  / 2) + 'px';
+        touchGhost.style.top  = (t.clientY - touchGhost.offsetHeight / 2) + 'px';
+    }
+
+    // Zelle unter dem Finger finden
+    touchGhost.style.visibility = 'hidden';
+    const el = document.elementFromPoint(t.clientX, t.clientY);
+    touchGhost.style.visibility = 'visible';
+
+    const cell  = el ? el.closest('.img-cell') : null;
+    const toIdx = cell ? parseInt(cell.dataset.idx) : -1;
+
+    document.querySelectorAll('.img-cell').forEach(c => c.classList.remove('drop-over'));
+    if (cell && toIdx !== touchMoveIdx && toIdx >= 0) {
+        cell.classList.add('drop-over');
+        touchLastOver = toIdx;
+    } else {
+        touchLastOver = null;
+    }
+}
+
+async function onTouchEnd(e) {
+    document.removeEventListener('touchmove',   onTouchMove);
+    document.removeEventListener('touchend',    onTouchEnd);
+    document.removeEventListener('touchcancel', onTouchEnd);
+
+    if (touchGhost)  { touchGhost.remove();  touchGhost = null; }
+    const hint = document.getElementById('moveHint');
+    if (hint) hint.remove();
+    document.querySelectorAll('.img-cell').forEach(c => c.classList.remove('dragging','drop-over'));
+
+    const fromIdx = touchMoveIdx;
+    const toIdx   = touchLastOver;
+    touchMoveIdx  = null;
+    touchLastOver = null;
+
+    if (fromIdx === null || toIdx === null || fromIdx === toIdx) return;
+
+    // Kombiniertes Array laden
+    const folder   = destinations[activeDest].folder;
+    const orderKey = folder + '__order';
+    let imgs = await dbGet(orderKey);
+    if (!imgs || imgs.length === 0) {
+        const localImgs = await dbGet(folder);
+        const ghImgs    = ghCache[folder] || [];
+        imgs = [...ghImgs, ...localImgs];
+    }
+    const tmp     = imgs[fromIdx];
+    imgs[fromIdx] = imgs[toIdx];
+    imgs[toIdx]   = tmp;
+    await saveCombined(imgs);
+    const localOnly = imgs.filter(x => !x.github);
+    await dbPut(folder, localOnly);
+    renderGallery(imgs);
+}
+
+// Kontext-Menü für GitHub-Bilder (nur Verschieben möglich)
+function showCtxGH(e, idx) {
+    e.preventDefault(); e.stopPropagation();
+    ctxIdx = idx;
+    const m = document.getElementById('ctxMenu');
+    // Nur "Verschieben" anzeigen für GitHub-Bilder
+    document.getElementById('ctx-rename').style.display  = 'none';
+    document.getElementById('ctx-replace').style.display = 'none';
+    document.getElementById('ctx-delete').style.display  = 'none';
+    document.getElementById('ctx-move').style.display    = 'block';
+    m.style.display = 'block';
+    let x = e.clientX, y = e.clientY;
+    m.style.left = '0'; m.style.top = '0';
+    const mw = m.offsetWidth, mh = m.offsetHeight;
+    if (x+mw > window.innerWidth)  x = window.innerWidth  - mw - 6;
+    if (y+mh > window.innerHeight) y = window.innerHeight - mh - 6;
+    m.style.left = x+'px'; m.style.top = y+'px';
+}
+
+// ════════════════════════════════════════════
+//  BILD VERSCHIEBEN  –  Touch-freundlich (Finger kleben)
+
+// ════════════════════════════════════════════
+//  LIGHTBOX  (Doppelklick)
+// ════════════════════════════════════════════
+function openLightbox(src,cap) {
+    document.getElementById('modalImage').src = src;
+    document.getElementById('lightboxCaption').textContent = cap||'';
+    document.getElementById('imageModal').style.display='block';
+}
+function closeLightbox() { document.getElementById('imageModal').style.display='none'; }
+// ════════════════════════════════════════════
+//  POI-LINKS  –  Standorte im Text anklicken
+// ════════════════════════════════════════════
+let currentPOI = null;   // { lat, lng, name }
+let poiMarker  = null;   // grüner Punkt auf der Karte
+
+// Alle poi-link Elemente aktivieren (auch dynamisch gerenderte)
+document.addEventListener('click', function(e) {
+    const el = e.target.closest('.poi-link');
+    if (!el) { closePOIPopup(); return; }
+    e.stopPropagation();
+
+    currentPOI = {
+        lat:  parseFloat(el.dataset.lat),
+        lng:  parseFloat(el.dataset.lng),
+        name: el.dataset.name
+    };
+
+    // Grüner Marker auf der Karte
+    if (poiMarker) map.removeLayer(poiMarker);
+    const greenDot = L.divIcon({
+        className: '',
+        html: '<div style="width:14px;height:14px;border-radius:50%;background:#4CAF50;border:3px solid white;box-shadow:0 0 0 2px #4CAF50;"></div>',
+        iconSize: [14,14], iconAnchor: [7,7]
+    });
+    poiMarker = L.marker([currentPOI.lat, currentPOI.lng], {icon: greenDot, zIndexOffset: 900})
+        .addTo(map)
+        .bindPopup(`📍 ${currentPOI.name}`)
+        .openPopup();
+    map.setView([currentPOI.lat, currentPOI.lng], 14, { animate: true });
+
+    // Zur Karte scrollen
+    document.getElementById('map').scrollIntoView({ behavior: 'smooth', block: 'center' });
+
+    // Popup positionieren
+    const popup = document.getElementById('poiPopup');
+    document.getElementById('poiPopupName').textContent = currentPOI.name;
+    popup.style.display = 'block';
+
+    // Position: neben dem angeklickten Element
+    const rect = el.getBoundingClientRect();
+    let x = rect.left;
+    let y = rect.bottom + 8;
+    popup.style.left = '0'; popup.style.top = '0';
+    const pw = popup.offsetWidth, ph = popup.offsetHeight;
+    if (x + pw > window.innerWidth)  x = window.innerWidth - pw - 10;
+    if (y + ph > window.innerHeight) y = rect.top - ph - 8;
+    popup.style.left = x + 'px';
+    popup.style.top  = y + 'px';
+});
+
+function closePOIPopup() {
+    document.getElementById('poiPopup').style.display = 'none';
+}
+
+async function usePOI(mode) {
+    if (!currentPOI) return;
+    closePOIPopup();
+
+    // Zur Routing-Box scrollen
+    document.querySelector('.routing-box').scrollIntoView({ behavior: 'smooth', block: 'start' });
+
+    if (mode === 'from' || mode === 'to') {
+        setField(mode, currentPOI.name, currentPOI.lat, currentPOI.lng);
+    }
+
+    if (mode === 'both') {
+        // Ziel = dieser POI
+        setField('to', currentPOI.name, currentPOI.lat, currentPOI.lng);
+        // Start = Mein Standort per GPS
+        const fromInp = document.getElementById('routeFrom');
+        fromInp.value = '⏳ Standort wird ermittelt …';
+        if (navigator.geolocation) {
+            navigator.geolocation.getCurrentPosition(
+                pos => setField('from', '📍 Mein Standort', pos.coords.latitude, pos.coords.longitude),
+                ()  => { fromInp.value = ''; showRouteError('GPS-Standort nicht verfügbar.'); },
+                { enableHighAccuracy: true, timeout: 10000 }
+            );
+        } else {
+            fromInp.value = '';
+            showRouteError('GPS nicht verfügbar auf diesem Gerät.');
+        }
+    }
+}
+
+// ════════════════════════════════════════════
+//  ROUTEN-PLANER  (OSRM – kostenlos, kein Key)
+// ════════════════════════════════════════════
+let routeLayer  = null;
+let pickMarkers = { from: null, to: null };
+let pickTarget  = null;   // 'from' | 'to' | null
+let activeMode  = 'car';
+
+// ── Verkehrsmittel & Geschwindigkeit ──
+const speedDefaults = { car: 40, foot: 4, bike: 10 };
+const speeds        = { car: 40, foot: 4, bike: 10 };   // anpassbar
+let   activeMode    = 'car';
+let   speedTarget   = null;   // welcher Modus wird gerade bearbeitet
+
+function onModeClick(e, mode) {
+    // Aktiven Button setzen
+    document.querySelectorAll('.mode-btn').forEach(b => b.classList.remove('active'));
+    e.currentTarget.classList.add('active');
+    activeMode = mode;
+
+    // Geschwindigkeits-Popup öffnen
+    speedTarget = mode;
+    const labels = { car:'🚗 Auto', foot:'🚶 Zu Fuß', bike:'🚲 Fahrrad' };
+    document.getElementById('spModeName').textContent = labels[mode];
+    document.getElementById('spInput').value = speeds[mode];
+
+    const popup = document.getElementById('speedPopup');
+    popup.style.display = 'block';
+    // Unterhalb des geklickten Buttons positionieren
+    const rect = e.currentTarget.getBoundingClientRect();
+    let x = rect.left, y = rect.bottom + 6;
+    popup.style.left = '0'; popup.style.top = '0';
+    const pw = popup.offsetWidth;
+    if (x + pw > window.innerWidth) x = window.innerWidth - pw - 10;
+    popup.style.left = x + 'px';
+    popup.style.top  = y + 'px';
+    setTimeout(() => { document.getElementById('spInput').focus(); document.getElementById('spInput').select(); }, 50);
+}
+
+function saveSpeed() {
+    const val = parseFloat(document.getElementById('spInput').value);
+    if (!isNaN(val) && val > 0) {
+        speeds[speedTarget] = val;
+        document.getElementById('badge-' + speedTarget).textContent = val + 'km/h';
+    }
+    closeSpeedPopup();
+}
+
+function closeSpeedPopup() {
+    document.getElementById('speedPopup').style.display = 'none';
+    speedTarget = null;
+}
+
+// Enter-Taste im Speed-Input bestätigt
+document.getElementById('spInput').addEventListener('keydown', e => {
+    if (e.key === 'Enter') saveSpeed();
+    if (e.key === 'Escape') closeSpeedPopup();
+});
+
+// Klick außerhalb schließt Speed-Popup
+document.addEventListener('click', e => {
+    const sp = document.getElementById('speedPopup');
+    if (sp.style.display === 'block' && !sp.contains(e.target) && !e.target.closest('.mode-btn')) {
+        closeSpeedPopup();
+    }
+});
+
+// ── Karte antippen: Start oder Ziel setzen ──
+function startPick(field) {
+    if (pickTarget === field) { stopPick(); return; }   // nochmal klicken = abbrechen
+    pickTarget = field;
+    const btnFrom = document.getElementById('btnPickFrom');
+    const btnTo   = document.getElementById('btnPickTo');
+    btnFrom.classList.toggle('picking', field === 'from');
+    btnTo.classList.toggle('picking',   field === 'to');
+    map.getContainer().style.cursor = 'crosshair';
+
+    // Hinweis-Banner
+    let hint = document.getElementById('pickHint');
+    if (!hint) { hint = document.createElement('div'); hint.id='pickHint'; hint.className='pick-hint'; document.body.appendChild(hint); }
+    hint.textContent = field === 'from' ? '🟢 Startpunkt auf der Karte antippen …' : '🔴 Zielpunkt auf der Karte antippen …';
+}
+
+function stopPick() {
+    pickTarget = null;
+    document.getElementById('btnPickFrom').classList.remove('picking');
+    document.getElementById('btnPickTo').classList.remove('picking');
+    map.getContainer().style.cursor = '';
+    const hint = document.getElementById('pickHint');
+    if (hint) hint.remove();
+}
+
+map.on('click', async function(e) {
+    if (!pickTarget) return;
+    const lat = e.latlng.lat;
+    const lng = e.latlng.lng;
+    const field = pickTarget;
+    stopPick();
+
+    // Reverse-Geocoding für lesbaren Namen
+    let label = `${lat.toFixed(5)}, ${lng.toFixed(5)}`;
+    try {
+        const r = await fetch(`https://nominatim.openstreetmap.org/reverse?lat=${lat}&lon=${lng}&format=json`);
+        const d = await r.json();
+        if (d.display_name) label = d.display_name.split(',').slice(0,3).join(', ');
+    } catch(e) {}
+
+    setField(field, label, lat, lng);
+});
+
+function setField(field, label, lat, lng) {
+    const inp = document.getElementById(field === 'from' ? 'routeFrom' : 'routeTo');
+    inp.value = label;
+    inp.dataset.lat = lat;
+    inp.dataset.lng = lng;
+    inp.classList.add('picked');
+
+    // Marker auf Karte setzen
+    if (pickMarkers[field]) map.removeLayer(pickMarkers[field]);
+    const color  = field === 'from' ? '🟢' : '🔴';
+    const popup  = field === 'from' ? 'Start' : 'Ziel';
+    pickMarkers[field] = L.marker([lat,lng]).addTo(map).bindPopup(`${color} ${popup}`);
+}
+
+// ── 📍 Mein Standort ──
+function useMyLocation(field) {
+    if (!navigator.geolocation) {
+        showRouteError('GPS nicht verfügbar auf diesem Gerät.'); return;
+    }
+    const inp = document.getElementById(field === 'from' ? 'routeFrom' : 'routeTo');
+    inp.value = '⏳ Standort wird ermittelt …';
+    navigator.geolocation.getCurrentPosition(
+        pos => {
+            const lat = pos.coords.latitude;
+            const lng = pos.coords.longitude;
+            setField(field, '📍 Mein Standort', lat, lng);
+        },
+        err => {
+            inp.value = '';
+            showRouteError('Standort konnte nicht ermittelt werden. Bitte GPS-Erlaubnis prüfen.');
+        },
+        { enableHighAccuracy: true, timeout: 10000 }
+    );
+}
+
+// ── Geocoding: Adresse → Koordinaten ──
+async function geocode(address) {
+    const url = `https://nominatim.openstreetmap.org/search?q=${encodeURIComponent(address)}&format=json&limit=1`;
+    const r   = await fetch(url, { headers: { 'Accept-Language': 'de' } });
+    const d   = await r.json();
+    if (!d.length) throw new Error(`Adresse nicht gefunden: „${address}"`);
+    return { lat: parseFloat(d[0].lat), lng: parseFloat(d[0].lon) };
+}
+
+// ── Route berechnen ──
+const osrmProfile = { car: 'driving', foot: 'walking', bike: 'cycling' };
+
+async function calcRoute() {
+    const fromInp = document.getElementById('routeFrom');
+    const toInp   = document.getElementById('routeTo');
+    const resBox  = document.getElementById('routeResult');
+    const errBox  = document.getElementById('routeError');
+    resBox.style.display = 'none';
+    errBox.style.display = 'none';
+
+    if (!fromInp.value.trim() || !toInp.value.trim()) {
+        showRouteError('⚠️ Bitte Start und Ziel eingeben.'); return;
+    }
+
+    resBox.innerHTML = '⏳ Route wird berechnet …';
+    resBox.style.display = 'block';
+
+    try {
+        // Koordinaten aus Datensatz oder Geocoding
+        const from = (fromInp.dataset.lat && fromInp.dataset.lng)
+            ? { lat: parseFloat(fromInp.dataset.lat), lng: parseFloat(fromInp.dataset.lng) }
+            : await geocode(fromInp.value.trim());
+        const to   = (toInp.dataset.lat && toInp.dataset.lng)
+            ? { lat: parseFloat(toInp.dataset.lat), lng: parseFloat(toInp.dataset.lng) }
+            : await geocode(toInp.value.trim());
+
+        const profile = osrmProfile[activeMode];
+        const url = `https://router.project-osrm.org/route/v1/${profile}/${from.lng},${from.lat};${to.lng},${to.lat}?overview=full&geometries=geojson`;
+        const resp = await fetch(url);
+        const data = await resp.json();
+
+        if (data.code !== 'Ok' || !data.routes.length) throw new Error('Keine Route gefunden.');
+
+        const route   = data.routes[0];
+        const distKm  = (route.distance / 1000).toFixed(1);
+
+        // Zeit selbst berechnen mit einstellbarer Geschwindigkeit
+        const speedKmh = speeds[activeMode];
+        const durMin   = Math.round((route.distance / 1000) / speedKmh * 60);
+        const durText  = durMin >= 60
+            ? `${Math.floor(durMin/60)} Std. ${durMin % 60} Min.`
+            : `${durMin} Min.`;
+
+        // Route auf Karte zeichnen
+        if (routeLayer) map.removeLayer(routeLayer);
+        routeLayer = L.geoJSON(route.geometry, {
+            style: { color: '#1565C0', weight: 5, opacity: 0.85 }
+        }).addTo(map);
+        map.fitBounds(routeLayer.getBounds(), { padding: [50, 50] });
+
+        // Marker aktualisieren
+        if (pickMarkers.from) map.removeLayer(pickMarkers.from);
+        if (pickMarkers.to)   map.removeLayer(pickMarkers.to);
+        pickMarkers.from = L.marker([from.lat, from.lng]).addTo(map).bindPopup('🟢 Start');
+        pickMarkers.to   = L.marker([to.lat,   to.lng  ]).addTo(map).bindPopup('🔴 Ziel');
+
+        const modeLabel = { car:'🚗 Auto', foot:'🚶 Zu Fuß', bike:'🚲 Fahrrad' }[activeMode];
+        resBox.innerHTML = `${modeLabel} ${speeds[activeMode]} km/h &nbsp;·&nbsp; <strong>${distKm} km</strong> &nbsp;·&nbsp; <strong>${durText}</strong>`;
+
+    } catch(err) {
+        resBox.style.display = 'none';
+        showRouteError('❌ ' + err.message);
+    }
+}
+
+function showRouteError(msg) {
+    const errBox = document.getElementById('routeError');
+    errBox.textContent   = msg;
+    errBox.style.display = 'block';
+}
+
+// ── Alles löschen ──
+function clearRoute() {
+    if (routeLayer) { map.removeLayer(routeLayer); routeLayer = null; }
+    if (pickMarkers.from) { map.removeLayer(pickMarkers.from); pickMarkers.from = null; }
+    if (pickMarkers.to)   { map.removeLayer(pickMarkers.to);   pickMarkers.to   = null; }
+    stopPick();
+    ['routeFrom','routeTo'].forEach(id => {
+        const el = document.getElementById(id);
+        el.value = ''; el.dataset.lat = ''; el.dataset.lng = '';
+        el.classList.remove('picked');
+    });
+    document.getElementById('routeResult').style.display = 'none';
+    document.getElementById('routeError').style.display  = 'none';
+}
+
+// Eingabefelder: bei manuellem Tippen Koordinaten-Cache leeren
+['routeFrom','routeTo'].forEach(id => {
+    document.getElementById(id).addEventListener('input', function() {
+        this.dataset.lat = ''; this.dataset.lng = '';
+        this.classList.remove('picked');
+    });
+});
+
+document.addEventListener('keydown', e => { if(e.key==='Escape'){ closeModal(); closeLightbox(); hideCtx(); } });
+</script>
+</body>
+</html>
